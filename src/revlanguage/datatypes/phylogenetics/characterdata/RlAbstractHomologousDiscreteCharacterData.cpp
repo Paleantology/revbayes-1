@@ -12,7 +12,10 @@
 #include "RlDiscreteTaxonData.h"
 #include "RlSimplex.h"
 #include "RbBitSet.h"
-
+#include<iostream>
+#include<vector>
+#include <set>
+#include <string>
 
 using namespace RevLanguage;
 
@@ -426,7 +429,7 @@ RevPtr<RevVariable> AbstractHomologousDiscreteCharacterData::executeMethod(std::
                         {
                             if (state.isSet(k) && k +1 > max)
                             {
-                                max = (int)(k+1);
+                                max = static_cast<int>(k)+1;
                             }
                         }
                     }
@@ -460,31 +463,48 @@ RevPtr<RevVariable> AbstractHomologousDiscreteCharacterData::executeMethod(std::
         RevBayesCore::AbstractHomologousDiscreteCharacterData &v = dag_node->getValue();
         size_t nChars = v.getNumberOfCharacters();
         size_t nTaxa = v.getNumberOfTaxa();
-        std::vector<int> stateVec;
+        std::vector<int> statesVec;
+        std::vector<AbstractHomologousDiscreteCharacterData> matVec;
 
             // e.g. data.setNumStatesPartition(2)
         for (size_t i = 0; i < nChars; i++)
         {
-            int max = 0;
-            for (size_t j = 0; j < nTaxa; j++)
-            {
-                const RevBayesCore::AbstractDiscreteTaxonData& td = v.getTaxonData(j);
-                if ( td.getCharacter(i).isMissingState() == false && td.getCharacter(i).isGapState() == false)
-                {
-                    if (td.getCharacter(i).getNumberObservedStates() > 1)
-                    {
-                        stateVec.push_back(td.getCharacter(i).getNumberObservedStates());
+          int max = 0;
+          for (size_t j = 0; j < nTaxa; j++)
+          {
+              const RevBayesCore::AbstractDiscreteTaxonData& td = v.getTaxonData(j);
+              if ( td.getCharacter(i).isMissingState() == false && td.getCharacter(i).isGapState() == false)
+              {
+                  if (td.getCharacter(i).getNumberObservedStates() > 1)
+                  {
+                      const RevBayesCore::RbBitSet& state = td.getCharacter(i).getState();
+                      for (size_t k = 0; k < state.size(); k++)
+                      {
+                          if (state.isSet(k) && k +1 > max)
+                          {
+                              max = static_cast<int>(k)+1;
+                              statesVec.push_back(max);
+                          }
+                      }
+                  }
+                  else
+                  {
+                      int k = int(td.getCharacter(i).getStateIndex()) + 1;
+                      if (k > max)
+                      {
+                          max = k;
+                          statesVec.push_back(max);
+                      }
                     }
+                  }
                 }
-                }
-            }
-            std::sort(stateVec.begin(), stateVec.end());
-            std::unique(stateVec.begin(), stateVec.end());
+              }
+              std::set<int> uniqueStates;
+              uniqueStates.insert(statesVec.begin(), statesVec.end());
 
-            std::vector<RevBayesCore::AbstractHomologousDiscreteCharacterData> matVec;
 
                 // e.g. data.setNumStatesPartition(2)
-            for (int x = 0; x < stateVec.size(); x++) {
+            for (int x = 0; x < uniqueStates.size(); x++) {
               size_t n = size_t( static_cast<const Natural&>( x ).getValue() );
               for (size_t i = 0; i < nChars; i++)
               {
@@ -496,12 +516,13 @@ RevPtr<RevVariable> AbstractHomologousDiscreteCharacterData::executeMethod(std::
                     {
                         if (td.getCharacter(i).getNumberObservedStates() > 1)
                         {
+
                             const RevBayesCore::RbBitSet& state = td.getCharacter(i).getState();
                             for (size_t k = 0; k < state.size(); k++)
                             {
                                 if (state.isSet(k) && k +1 > max)
                                 {
-                                    max = (int)(k+1);
+                                    max = static_cast<int>(k)+1;
                                 }
                             }
                         }
@@ -524,15 +545,13 @@ RevPtr<RevVariable> AbstractHomologousDiscreteCharacterData::executeMethod(std::
                 {
                     v.excludeCharacter(i);
                 }
-
               }
-              matVec.push_back(v);
-
-
+              if (v.getNumberOfIncludedCharacters() >= 1)
+              {
+                matVec.push_back(v);
+              }
             }
-
-
-        return NULL;
+        return matVec;
     }
 
     else if ( name == "translateCharacters" )
@@ -629,6 +648,7 @@ void AbstractHomologousDiscreteCharacterData::initMethods( void )
     ArgumentRules* setCodonPartitionArgRules        = new ArgumentRules();
     ArgumentRules* setCodonPartitionArgRules2       = new ArgumentRules();
     ArgumentRules* setNumStatesPartitionArgRules    = new ArgumentRules();
+    ArgumentRules* setNumStatesVectorArgRules       = new ArgumentRules();
     ArgumentRules* squareBracketArgRules            = new ArgumentRules();
 
     ArgumentRules* maxGcContentArgRules                 = new ArgumentRules();
@@ -653,6 +673,7 @@ void AbstractHomologousDiscreteCharacterData::initMethods( void )
     setCodonPartitionArgRules->push_back(       new ArgumentRule("",        Natural::getClassTypeSpec()              , "The index of the codon position.", ArgumentRule::BY_VALUE, ArgumentRule::ANY ) );
     setCodonPartitionArgRules2->push_back(      new ArgumentRule("",        ModelVector<Natural>::getClassTypeSpec() , "The indicies of the codon positions.", ArgumentRule::BY_VALUE, ArgumentRule::ANY ) );
     setNumStatesPartitionArgRules->push_back(   new ArgumentRule("",        Natural::getClassTypeSpec()              , "The number of states in this partition.", ArgumentRule::BY_VALUE, ArgumentRule::ANY ) );
+    setNumStatesVectorArgRules->push_back(      new ArgumentRule(""  ,      RlBoolean::getClassTypeSpec()            , "Should we partition the matrix by number of states?", ArgumentRule::BY_VALUE, ArgumentRule::ANY, new RlBoolean( false )  ) );
     squareBracketArgRules->push_back(           new ArgumentRule( "index" , Natural::getClassTypeSpec()              , "The index of the taxon.", ArgumentRule::BY_VALUE, ArgumentRule::ANY  ) );
 
     expandCharactersArgRules->push_back(                new ArgumentRule( "factor"           , Natural::getClassTypeSpec()            , "The factor by which the state space is expanded.", ArgumentRule::BY_VALUE, ArgumentRule::ANY  ) );
@@ -681,6 +702,8 @@ void AbstractHomologousDiscreteCharacterData::initMethods( void )
     methods.addFunction( new MemberProcedure( "setCodonPartition",                      RlUtils::Void,                      setCodonPartitionArgRules       ) );
     methods.addFunction( new MemberProcedure( "setCodonPartition",                      RlUtils::Void,                      setCodonPartitionArgRules2      ) );
     methods.addFunction( new MemberProcedure( "setNumStatesPartition",                  RlUtils::Void,                      setNumStatesPartitionArgRules   ) );
+    methods.addFunction( new MemberProcedure( "setNumStatesVector"  ,                   RlUtils::Void,                      setNumStatesVectorArgRules      ) );
+
     methods.addFunction( new MemberProcedure( "isHomologous",                           RlBoolean::getClassTypeSpec(),      ishomologousArgRules            ) );
     methods.addFunction( new MemberProcedure( "expandCharacters",                       AbstractHomologousDiscreteCharacterData::getClassTypeSpec(),        expandCharactersArgRules         ) );
     methods.addFunction( new MemberProcedure( "getEmpiricalBaseFrequencies",            Simplex::getClassTypeSpec(),        empiricalBaseArgRules           ) );
