@@ -18,7 +18,6 @@ Command line options are:
     # parse pairs
     eval $( echo $1 | sed 's/-//g' | tr -d '\012')=$2
     shift
-    shift
 done
 
 if [ "$mpi" = "true" ] && [ "$travis" = "false" ]; then

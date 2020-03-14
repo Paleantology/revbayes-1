@@ -14,7 +14,7 @@ jupyter="false"
 boost_root=""
 boost_lib=""
 exec_name=""
-
+cmake_prefix=""
 # parse command line arguments
 while echo $1 | grep ^- > /dev/null; do
     # intercept help while parsing "-key value" pairs
@@ -39,7 +39,6 @@ Command line options are:
 
     # parse pairs
     eval $( echo $1 | sed 's/-//g' | tr -d '\012')=$2
-    shift
     shift
 done
 
@@ -131,6 +130,12 @@ else()
 endif()
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
 '  >> "$BUILD_DIR/CMakeLists.txt"
+fi
+if [ "$cmake_prefix" = "true" ]
+then
+   echo ' 
+   set(CMAKE_INSTALL_PREFIX < $cmake_prefix >)
+   ' >> "$BUILD_DIR/CMakeLists.txt"
 fi
 
 if [ "$mpi" = "true" ]
